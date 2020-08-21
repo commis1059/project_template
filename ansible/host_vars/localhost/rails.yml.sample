@@ -1,0 +1,7 @@
+---
+rails:
+  ruby:
+    version:
+
+  db:
+    name:

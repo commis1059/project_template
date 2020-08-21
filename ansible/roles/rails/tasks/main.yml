@@ -1,0 +1,101 @@
+---
+- name: Does a .ruby-version exist?
+  stat:
+    path: ../.ruby-version
+  register: ruby_version
+
+- name: Install specified version ruby via rbenv
+  command: "rbenv install --skip-existing {{ rails.ruby.version }}"
+  args:
+    chdir: ../
+  when: not ruby_version.stat.exists
+
+- name: Configure the ruby version
+  command: "rbenv local {{ rails.ruby.version }}"
+  args:
+    chdir: ../
+  when: not ruby_version.stat.exists
+
+- name: Create a directory to configure bundler
+  file:
+    path: ../.bundle/
+    state: directory
+
+- name: Configure bundler
+  copy:
+    dest: ../.bundle/config
+    content: |
+      ---
+      BUNDLE_JOBS: "4"
+      BUNDLE_BUILD__MYSQL2: "--with-ldflags=-L/usr/local/opt/openssl/lib"
+      BUNDLE_WITHOUT: "production"
+    mode: 0644
+
+- name: Does a config.ru exist?
+  stat:
+    path: ../config.ru
+  register: config_ru
+
+- name: Create a Gemfile to install rails gem
+  copy:
+    dest: ../Gemfile
+    content: |
+      # frozen_string_literal: true
+
+      source "https://rubygems.org"
+
+      git_source(:github) {|repo_name| "https://github.com/#{repo_name}" }
+
+      gem "rails"
+  when: not config_ru.stat.exists
+
+- name: Install rails gem via bundler
+  command: "bundle install"
+  args:
+    chdir: ../
+  when: not config_ru.stat.exists
+
+- name: Initialize a rails project
+  command: "bundle exec rails new . --api -d {{ rails.db.name }} --skip-test --force"
+  args:
+    chdir: ../
+  when: not config_ru.stat.exists
+
+- name: Configure a .gitignore
+  get_url:
+    url: https://www.gitignore.io/api/osx,rails,jetbrains
+    dest: ../.gitignore
+  when: not config_ru.stat.exists
+
+- name: Create a file to configure generator
+  copy:
+    dest: ../config/initializers/generators.rb
+    force: no
+    content: |
+      # frozen_string_literal: true
+
+      Rails.application.config.generators do |g|
+      end
+
+- name: Add a rspec gem to the Gemfile
+  blockinfile:
+    path: ../Gemfile
+    marker: "  # {mark} ANSIBLE MANAGED BLOCK FOR RSPEC"
+    insertafter: "^group :development, :test do"
+    block: |2
+        gem 'rspec-rails'
+        gem 'factory_bot_rails'
+
+- name: Install a rspec gem
+  bundler:
+    state: present
+    gemfile: ../Gemfile
+
+- name: Configure generator for rspec
+  blockinfile:
+    path: ../config/initializers/generators.rb
+    marker: "  # {mark} ANSIBLE MANAGED BLOCK FOR RSPEC"
+    insertafter: "^Rails.application.config.generators do \\|g\\|"
+    block: |2
+        g.test_framework :rspec, view_specs: false, controller_specs: false, fixture: true
+        g.fixture_replacement :factory_bot, dir: 'spec/factories'

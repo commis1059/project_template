@@ -1,0 +1,12 @@
+# ansible-playbook -i hosts rails_api_project.yml -v
+#
+# You need to install rbenv.
+# If you are using Avira, you need to stop the real time scan by Avira. Otherwise, Ruby build will fail.
+# You need to copy *.sample under host_vers directory to *.yml and edit.
+
+- hosts: localhost
+  connection: local
+  gather_facts: no
+  roles:
+    - rails
+    - git

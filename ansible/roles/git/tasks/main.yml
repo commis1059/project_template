@@ -1,0 +1,25 @@
+---
+- name: Has this local git repository initialized?
+  stat:
+    path: ../.git
+  register: git_repo_dir
+
+- name: Initialize this local git repository
+  command: "git init"
+  args:
+    chdir: ../
+  when: not git_repo_dir.stat.exists
+
+- name: Configure the user name for Git
+  git_config:
+    name: user.name
+    scope: local
+    value: "{{ git.user.name }}"
+    repo: ../
+
+- name: Configure the user e-mail for Git
+  git_config:
+    name: user.email
+    scope: local
+    value: "{{ git.user.email }}"
+    repo: ../
